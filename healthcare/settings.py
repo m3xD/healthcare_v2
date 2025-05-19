@@ -42,6 +42,14 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
+
+    'doctors.apps.DoctorsConfig',
+    'appointments.apps.AppointmentsConfig',
+    'pharmacy.apps.PharmacyConfig',
+    'laboratory.apps.LaboratoryConfig',
+    'billing.apps.BillingConfig',
+    'chat.apps.ChatConfig',
+    'notifications.apps.NotificationsConfig',
 ]
 
 MIDDLEWARE = [
@@ -54,6 +62,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+
+
 ]
 
 ROOT_URLCONF = 'healthcare.urls'

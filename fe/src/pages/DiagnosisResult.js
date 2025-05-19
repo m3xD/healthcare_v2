@@ -96,6 +96,28 @@ const DiagnosisResult = () => {
       } else if (result.prediction_data?.symptoms && Array.isArray(result.prediction_data.symptoms)) {
         // Nếu symptoms là array binary trong prediction_data
         symptomArray.push(...result.prediction_data.symptoms);
+      } else if (result.prediction_data?.symptoms) {
+        // Trường hợp symptoms không phải là array - convert sang array nếu có thể
+        try {
+          const symptomsData = result.prediction_data.symptoms;
+          if (typeof symptomsData === 'object' && symptomsData !== null) {
+            // Nếu là object, lấy giá trị
+            symptomArray.push(...Object.values(symptomsData));
+          } else if (typeof symptomsData === 'string') {
+            // Nếu là string, thử parse JSON
+            try {
+              const parsedSymptoms = JSON.parse(symptomsData);
+              if (Array.isArray(parsedSymptoms)) {
+                symptomArray.push(...parsedSymptoms);
+              }
+            } catch (parseErr) {
+              console.error('Error parsing symptoms string:', parseErr);
+            }
+          }
+        } catch (err) {
+          console.error('Error processing symptoms data:', err);
+          // Fallback to default empty array
+        }
       }
 
       // Gọi API lưu chẩn đoán

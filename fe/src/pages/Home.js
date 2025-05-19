@@ -94,9 +94,18 @@ const Home = () => {
         setLoading(true);
         try {
             // Chuyển đổi selectedSymptoms thành mảng binary dựa trên tất cả triệu chứng
-            const symptomValues = symptoms.map(symptom =>
-                selectedSymptoms.includes(symptom.id) ? 1 : 0
-            );
+            const symptomIds = symptoms.map(symptom => symptom.id);
+
+            // Tạo mảng 9 phần tử với giá trị mặc định là 0
+            const symptomValues = Array(9).fill(0);
+
+            // Cập nhật giá trị 1 cho các triệu chứng được chọn
+            selectedSymptoms.forEach(id => {
+                const index = symptomIds.indexOf(id);
+                if (index !== -1 && index < 9) {
+                    symptomValues[index] = 1;
+                }
+            });
 
             // Gọi API chẩn đoán
             const response = await api.post('/api/v1/diagnoses/diagnose/', {symptom_values: symptomValues});
