@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Hồ sơ của bạn{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-user-circle me-2"></i>Thông tin cá nhân</h5>
+            </div>
+            <div class="card-body text-center">
+                <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="rounded-circle img-fluid mb-3" style="max-width: 150px;">
+                <h4>{{ user.username }}</h4>
+                <p class="text-muted">{{ user.email }}</p>
+
+                {% if user.profile.bio %}
+                    <div class="border-top pt-3 mt-3">
+                        <p class="mb-0">{{ user.profile.bio }}</p>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Tham gia từ: {{ user.date_joined|date:"d/m/Y" }}</small>
+                    {% if user.profile.date_of_birth %}
+                        <small class="text-muted">Ngày sinh: {{ user.profile.date_of_birth|date:"d/m/Y" }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Cập nhật thông tin</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <h6 class="mb-3">Thông tin tài khoản</h6>
+                        {{ u_form|crispy }}
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="mb-3">Thông tin hồ sơ</h6>
+                        {{ p_form|crispy }}
+                    </div>
+
+                    <div class="d-grid">
+                        <button class="btn btn-primary" type="submit">Cập nhật</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-heartbeat me-2"></i>Tóm tắt sức khỏe</h5>
+            </div>
+            <div class="card-body">
+                <!-- Health Summary from user's diagnosis history -->
+                <p>
+                    <a href="{% url 'ai_model:history' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-history me-2"></i>Xem lịch sử chẩn đoán
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

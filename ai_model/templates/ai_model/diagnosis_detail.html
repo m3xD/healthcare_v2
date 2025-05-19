@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confidence-meter {
+        height: 30px;
+        background-color: #e9ecef;
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+        margin-bottom: 10px;
+    }
+    
+    .confidence-bar {
+        height: 100%;
+        background-color: var(--primary-color);
+        border-radius: 15px;
+        transition: width 1s ease-in-out;
+    }
+    
+    .confidence-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: bold;
+        text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+    }
+    
+    .uncertainty-indicator {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        margin-left: 10px;
+    }
+    
+    .symptom-tag {
+        display: inline-block;
+        background-color: #e3f2fd;
+        color: var(--primary-color);
+        padding: 5px 12px;
+        border-radius: 20px;
+        margin-right: 8px;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .timeline-item {
+        padding: 1rem;
+        border-left: 2px solid var(--primary-color);
+        position: relative;
+        margin-left: 20px;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 1.5rem;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background-color: var(--primary-color);
+    }
+    
+    .timeline-date {
+        position: absolute;
+        left: -120px;
+        top: 1rem;
+        width: 100px;
+        text-align: right;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    @media (max-width: 768px) {
+        .timeline-date {
+            position: static;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Back button -->
+        <a href="{% url 'ai_model:history' %}" class="btn btn-outline-secondary mb-4">
+            <i class="fas fa-arrow-left me-2"></i>Quay lại lịch sử
+        </a>
+        
+        <!-- Diagnosis Result -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-stethoscope me-2"></i>Chẩn đoán: {{ diagnosis.primary_disease.name }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Thông tin chung</h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <th style="width: 120px;">Ngày:</th>
+                                <td>{{ diagnosis.created_at|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Chẩn đoán:</th>
+                                <td>{{ diagnosis.primary_disease.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Độ tin cậy:</th>
+                                <td>{{ confidence|floatformat:0 }}%</td>
+                            </tr>
+                            <tr>
+                                <th>Không chắc chắn:</th>
+                                <td>±{{ uncertainty|floatformat:1 }}%</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Đề xuất</h5>
+                        <div class="mb-3">
+                            <strong><i class="fas fa-flask me-2"></i>Xét nghiệm:</strong>
+                            <p class="mb-0">{{ diagnosis.primary_disease.test_recommendation }}</p>
+                        </div>
+                        <div>
+                            <strong><i class="fas fa-pills me-2"></i>Thuốc:</strong>
+                            <p class="mb-0">{{ diagnosis.primary_disease.medicine_recommendation }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <h5 class="mb-3">Độ tin cậy của chẩn đoán</h5>
+                <div class="confidence-meter mb-4">
+                    <div class="confidence-bar" style="width: {{ confidence|floatformat:0 }}%"></div>
+                    <div class="confidence-label">{{ confidence|floatformat:0 }}%</div>
+                </div>
+                
+                <h5 class="mb-3">Triệu chứng</h5>
+                <div class="mb-4">
+                    {% for symptom in present_symptoms %}
+                        <span class="symptom-tag">
+                            <i class="fas fa-check-circle me-1"></i> {{ symptom }}
+                        </span>
+                    {% empty %}
+                        <p class="text-muted">Không có triệu chứng nào được ghi nhận.</p>
+                    {% endfor %}
+                </div>
+                
+                <!-- AI Disclaimer -->
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> 
+                    <strong>Lưu ý quan trọng:</strong> Kết quả chẩn đoán này được tạo ra bởi mô hình AI 
+                    và chỉ mang tính chất tham khảo. Vui lòng tham khảo ý kiến của bác sĩ để có 
+                    chẩn đoán chính xác và phương pháp điều trị phù hợp.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Diagnosis Charts -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Xác suất chẩn đoán</h5>
+                    </div>
+                    <div class="card-body">
+                        <img src="data:image/png;base64,{{ diagnosis_chart }}" alt="Diagnosis Probabilities" class="img-fluid">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Mô hình triệu chứng</h5>
+                    </div>
+                    <div class="card-body">
+                        <img src="data:image/png;base64,{{ symptoms_chart }}" alt="Symptom Patterns" class="img-fluid">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Feedback Section (if available) -->
+        {% if diagnosis.prediction_data.feedback %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-comment-alt me-2"></i>Phản hồi của bạn</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <h6>Độ chính xác đánh giá</h6>
+                            <div class="d-flex justify-content-center">
+                                {% for i in "12345" %}
+                                    {% if i|add:"0" <= diagnosis.prediction_data.feedback.accuracy_rating|add:"0" %}
+                                        <i class="fas fa-star text-warning me-1" style="font-size: 1.5rem;"></i>
+                                    {% else %}
+                                        <i class="far fa-star text-muted me-1" style="font-size: 1.5rem;"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            <div class="mt-2">
+                                {{ diagnosis.prediction_data.feedback.accuracy_rating }}/5
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <h6>Nhận xét</h6>
+                        {% if diagnosis.prediction_data.feedback.comments %}
+                            <p>{{ diagnosis.prediction_data.feedback.comments }}</p>
+                        {% else %}
+                            <p class="text-muted">Không có nhận xét nào được gửi.</p>
+                        {% endif %}
+                        <div class="text-muted small">
+                            Đã gửi vào: {{ diagnosis.prediction_data.feedback.submitted_at }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize confidence bar animation
+        setTimeout(function() {
+            document.querySelector('.confidence-bar').style.width = '{{ confidence|floatformat:0 }}%';
+        }, 100);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@ant-design/charts": "^2.2.7",
+    "@ant-design/icons": "^6.0.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "antd": "^5.25.1",
+    "axios": "^1.9.0",
+    "moment": "^2.30.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^2.15.3",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "../frontend/node_modules/.bin/react-scripts start",
+    "build": "../frontend/node_modules/.bin/react-scripts build",
+    "test": "../frontend/node_modules/.bin/react-scripts test",
+    "eject": "../frontend/node_modules/.bin/react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

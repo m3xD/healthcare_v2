@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Đăng xuất{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                <h2 class="mt-4 mb-3">Đăng xuất thành công!</h2>
+                <p class="lead mb-4">
+                    Bạn đã đăng xuất khỏi hệ thống. Cảm ơn bạn đã sử dụng AI Health Assistant.
+                </p>
+                <a href="{% url 'users:login' %}" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt me-2"></i>Đăng nhập lại
+                </a>
+                <a href="{% url 'ai_model:home' %}" class="btn btn-outline-secondary ms-2">
+                    <i class="fas fa-home me-2"></i>Về trang chủ
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
