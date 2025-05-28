@@ -1,3 +1,4 @@
+# chat/api/views.py (improved version)
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,6 +12,11 @@ from .serializers import (
 from django.db.models import Q, F, Max, Count
 from django.utils import timezone
 from ai_model.ml.prediction import get_diagnosis
+import json
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class IsChatParticipant(permissions.BasePermission):
@@ -54,10 +60,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         unread_messages = messages.filter(is_read=False).exclude(sender=request.user)
         unread_messages.update(is_read=True)
 
-        # Ensure we have a valid queryset
-        if not isinstance(messages, list) and not hasattr(messages, '__iter__'):
-            messages = []
-
         # Paginate results
         page = self.paginate_queryset(messages)
         if page is not None:
@@ -78,7 +80,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Create the message
+        # Create the user message
         message = Message.objects.create(
             chat_room=chat_room,
             sender=request.user,
@@ -87,57 +89,61 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
         # If this is an AI chat, generate AI response
         if chat_room.is_ai_chat:
-            ai_response = self._generate_ai_response(content, request.user)
+            try:
+                ai_response = self._generate_ai_response(content, request.user)
 
-            # Create AI message
-            Message.objects.create(
-                chat_room=chat_room,
-                content=ai_response,
-                is_ai_message=True
-            )
+                # Create AI message
+                ai_message = Message.objects.create(
+                    chat_room=chat_room,
+                    content=ai_response,
+                    is_ai_message=True
+                )
+
+                # Include AI response in the returned data
+                return Response({
+                    "user_message": MessageSerializer(message).data,
+                    "ai_response": MessageSerializer(ai_message).data
+                })
+
+            except Exception as e:
+                logger.error(f"Error generating AI response: {str(e)}")
+                # Return just the user message if AI response fails
+                return Response({
+                    "user_message": MessageSerializer(message).data,
+                    "error": "Failed to generate AI response"
+                })
 
         serializer = MessageSerializer(message)
         return Response(serializer.data)
 
     def _generate_ai_response(self, query, user):
         """
-        Generate AI response to user query
-        This is a simplified version - in production, you'd use a more sophisticated AI model
+        Enhanced AI response generation using the existing diagnosis model
         """
-        # For medical symptom queries, use the existing AI model
-        if any(keyword in query.lower() for keyword in ['symptom', 'sick', 'pain', 'feeling', 'health']):
-            # Extract symptoms from query (simplified)
-            # In a real app, you'd use NLP to extract symptoms
-            symptom_values = [0] * 9  # Assuming 9 symptoms in the model
+        # Extract symptoms from query using keyword matching
+        # This is a simplified approach - in production, use NLP
+        symptom_values = self._extract_symptoms_from_query(query)
 
-            # Simple keyword matching (just for demonstration)
-            if 'fever' in query.lower():
-                symptom_values[0] = 1
-            if 'cough' in query.lower():
-                symptom_values[1] = 1
-            if 'sneez' in query.lower():
-                symptom_values[2] = 1
-            if 'fatigue' in query.lower() or 'tired' in query.lower():
-                symptom_values[3] = 1
-            if 'taste' in query.lower():
-                symptom_values[4] = 1
-            if 'eye' in query.lower() and 'itch' in query.lower():
-                symptom_values[5] = 1
-            if 'throat' in query.lower() and ('sore' in query.lower() or 'pain' in query.lower()):
-                symptom_values[6] = 1
-            if 'body' in query.lower() and ('ache' in query.lower() or 'pain' in query.lower()):
-                symptom_values[7] = 1
-            if 'chill' in query.lower():
-                symptom_values[8] = 1
-
-            # Get diagnosis if at least one symptom is present
-            if sum(symptom_values) > 0:
+        # If we detected symptoms, use the diagnosis model
+        if sum(symptom_values) > 0:
+            try:
+                # Use the existing diagnosis model
                 result = get_diagnosis(symptom_values)
 
-                response = f"Based on your symptoms, you may have {result['diagnosis']} with a confidence of {int(result['confidence'] * 100)}%. "
-                response += f"I recommend {result['test_recommendation']} and consider {result['medicine_recommendation']}."
+                # Format the response
+                confidence = int(result['confidence'] * 100)
+                response = f"Based on your symptoms, I think you may have **{result['diagnosis']}** with a confidence of {confidence}%.\n\n"
 
-                # Save the AI response
+                if result['test_recommendation']:
+                    response += f"**Recommended tests:** {result['test_recommendation']}\n\n"
+
+                if result['medicine_recommendation']:
+                    response += f"**Medication recommendations:** {result['medicine_recommendation']}\n\n"
+
+                # Add disclaimer
+                response += "Please note that this is just an AI assessment and not a professional medical diagnosis. Always consult with a healthcare provider for proper medical advice."
+
+                # Save AI response for analytics
                 AIResponse.objects.create(
                     query=query,
                     response=response,
@@ -146,15 +152,85 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
                 return response
 
-        # Default responses for other queries
-        if 'hello' in query.lower() or 'hi' in query.lower():
-            return "Hello! I'm your health assistant. How can I help you today?"
+            except Exception as e:
+                logger.error(f"Error in diagnosis algorithm: {str(e)}")
+                return "I apologize, but I encountered an issue while analyzing your symptoms. Please try describing them differently or consult with a healthcare provider."
 
-        if 'thank' in query.lower():
-            return "You're welcome! Is there anything else I can help you with?"
+        # Handle general health queries
+        lower_query = query.lower()
 
-        # Generic response
-        return "I'm here to help with health-related questions. Could you provide more details about your symptoms or health concerns?"
+        # Check for greeting
+        if any(greeting in lower_query for greeting in ['hello', 'hi', 'hey', 'greetings']):
+            return "Hello! I'm your health assistant. How can I help you today? You can describe your symptoms or ask health-related questions."
+
+        # Check for gratitude
+        if any(thanks in lower_query for thanks in ['thank', 'thanks', 'appreciate']):
+            return "You're welcome! Is there anything else I can help you with regarding your health concerns?"
+
+        # Check for specific health topics
+        if 'covid' in lower_query or 'coronavirus' in lower_query:
+            return "COVID-19 is a respiratory illness caused by the SARS-CoV-2 virus. Common symptoms include fever, cough, and fatigue. If you're experiencing these symptoms, please consider getting tested and follow your local health guidelines."
+
+        if 'diet' in lower_query or 'nutrition' in lower_query or 'healthy eating' in lower_query:
+            return "A balanced diet typically includes a variety of fruits, vegetables, whole grains, lean proteins, and healthy fats. It's recommended to limit processed foods, sugars, and excessive salt. Would you like more specific nutritional advice?"
+
+        if 'exercise' in lower_query or 'workout' in lower_query or 'physical activity' in lower_query:
+            return "Regular physical activity is important for good health. Adults should aim for at least 150 minutes of moderate exercise or 75 minutes of vigorous exercise weekly, plus muscle-strengthening activities. Always start gradually if you're new to exercise."
+
+        if 'sleep' in lower_query or 'insomnia' in lower_query or 'tired' in lower_query:
+            return "Good sleep is essential for health. Adults typically need 7-9 hours of quality sleep. Establishing a regular sleep schedule, creating a restful environment, and avoiding screens before bedtime can help improve sleep quality."
+
+        # Default response for other health queries
+        return "To provide you with more specific health information, could you please share more details about your symptoms or health concerns? This will help me give you more relevant information. Remember, I'm here to provide general health information, but I can't replace professional medical advice."
+
+    def _extract_symptoms_from_query(self, query):
+        """
+        Extract symptom values from user query
+        Returns a list of binary values (0 or 1) for each symptom
+        """
+        # Default all symptoms to 0 (not present)
+        symptom_values = [0] * 9  # Assuming 9 symptoms in the model
+
+        lower_query = query.lower()
+
+        # Simple keyword matching for symptoms
+        # In a real application, use NLP for better extraction
+        symptom_keywords = {
+            'fever': 0,
+            'temperature': 0,
+            'hot': 0,
+            'cough': 1,
+            'coughing': 1,
+            'headache': 2,
+            'head pain': 2,
+            'head hurts': 2,
+            'sore throat': 3,
+            'throat pain': 3,
+            'fatigue': 4,
+            'tired': 4,
+            'exhausted': 4,
+            'no energy': 4,
+            'taste': 5,
+            'smell': 5,
+            'eye': 6,
+            'itchy eyes': 6,
+            'watery eyes': 6,
+            'rash': 7,
+            'skin irritation': 7,
+            'body ache': 8,
+            'muscle pain': 8,
+            'joint pain': 8,
+            'pain': 8,
+            'chills': 8,
+            'cold': 8
+        }
+
+        # Check for each symptom keyword
+        for keyword, index in symptom_keywords.items():
+            if keyword in lower_query:
+                symptom_values[index] = 1
+
+        return symptom_values
 
 
 class MessageViewSet(viewsets.ModelViewSet):
